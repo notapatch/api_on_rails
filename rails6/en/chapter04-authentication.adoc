@@ -1,4 +1,4 @@
-[#chapter05-athentification]
+[#chapter04-authentication]
 = Authenticating user
 
 It's been a long time since you started. I hope you enjoy this trip as much as I do.
@@ -12,7 +12,7 @@ You can clone the project up to this point:
 $ git checkout tags/checkpoint_chapter04
 ----
 
-In this chapter things will get very interesting because we are going to set up our authentication mechanism. In my opinion it's one of the most interesting chapters. We will introduce a lot of new terms and you will end with a simple but powerful authentication system. Don’t feel panic we will get to that.
+In this chapter things will get very interesting because we are going to set up our authentication mechanism. In my opinion it's one of the most interesting chapters. We will introduce a lot of new terms and you will end with a simple but powerful authentication system. Don’t panic, we will get there.
 
 First things first (and as usual when starting a new chapter) we will create a new branch:
 
