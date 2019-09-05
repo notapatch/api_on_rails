@@ -38,7 +38,7 @@ Dans cette section et la suivante, nous nous concentrerons sur la construction d
 
 Lorsqu'on parle de jeton d'authentification, un standard existe: le JSON Web Token (JWT).
 
-> JWT est un standard ouvert défini dans la RFC 75191. Il permet l'échange sécurisé de jetons (tokens) entre plusieurs parties. - https://fr.wikipedia.org/wiki/JSON_Web_Token[Wikipedia]
+> JWT est un standard ouvert défini dans la RFC 7519. Il permet l'échange sécurisé de jetons (tokens) entre plusieurs parties. - https://fr.wikipedia.org/wiki/JSON_Web_Token[Wikipedia]
 
 Globalement, un jeton JWT est composé de trois parties:
 

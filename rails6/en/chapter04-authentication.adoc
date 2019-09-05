@@ -23,11 +23,11 @@ $ git checkout -b chapter04
 
 == Stateless session
 
-Before we go any further, something must be clear: *an API does not handle sessions*. If you don’t have experience building these kind of applications it might sound a little crazy but stay with me. An API should be stateless which means by definition _is one that provides a response after your request, and then requires no further attention._. Which means no previous or future state is required for the system to work.
+Before we go any further, something must be clear: *an API does not handle sessions*. If you don’t have experience building these kind of applications it might sound a little crazy but stay with me. An API should be stateless which means by definition _it provides a response after your request, and then requires no further attention._. Which means no previous or future state is required for the system to work.
 
 The flow for authenticating the user through an API is very simple:
 
-. The client request for `sessions` resource with the corresponding credentials (usually email and password)
+. The client requests a `sessions` resource with the corresponding credentials (usually email and password)
 . The server returns the `user` resource along with its corresponding authentication token
 . For every page that requires authentication the client has to send that `authentication token`
 
@@ -40,7 +40,7 @@ This section and the next we will be focusing on building a Sessions controller 
 
 When it comes to authentication tokens, there is a standard: the JSON Web Token (JWT).
 
-> JWT is an open standard defined in RFC 75191. It allows the secure exchange of tokens between several parties. - https://wikipedia.org/wiki/JSON_Web_Token_Web_Token[Wikipedia]
+> JWT is an open standard defined in RFC 7519. It allows the secure exchange of tokens between several parties. - https://wikipedia.org/wiki/JSON_Web_Token_Web_Token[Wikipedia]
 
 Overall a JWT token is composed of three parts:
 
@@ -71,7 +71,7 @@ Once decoded, this token gives us the following information:
 
 NOTE: For more information about JWT tokens I invite you to visit https://jwt.io[jwt.io]
 
-This has many advantages such as sending information in token's payload. For example, we may choose to integrate user's information into the _payload_.
+This has many advantages such as sending information in the token's payload. For example, we may choose to integrate user's information into the _payload_.
 
 === Setting up the authentication token
 
@@ -102,7 +102,7 @@ The library is very simple. There are two methods: `JWT.encode` and `JWT.decode`
 
 In the first line we encoded a _payload_ with the secret key `my_secret_key`. So we get a token we can simply decode. The second line decodes the token and we see that we find our _payload_ well.
 
-We will now include all this logic in a `JsonWebToken` class in a new file located in `lib/`. This will allow us to avoide duplicating the code.  This class will just encode and decode the JWT tokens. So here is the implementation.
+We will now include all this logic in a `JsonWebToken` class in a new file located in `lib/`. This will allow us to avoid duplicating the code.  This class will just encode and decode the JWT tokens. So here is the implementation.
 
 .lib/json_web_token.rb
 [source,ruby]
@@ -129,7 +129,7 @@ I know that's a lot of code but we're going to review it together.
 
 There you go. In order to load the file into our application, you must specify the `lib` folder in the list of Ruby on Rails _autoload_s. To do this, add the following configuration to the `application.rb` file:
 
-.lib/json_web_token.rb
+.config/application.rb
 [source,ruby]
 ----
 # ...
@@ -180,7 +180,7 @@ end
 We will build functional tests before going any further. The desired behavior is the following:
 
 - I receive a token if I send a valid email / password pair
-- otherwise server repond a `forbidden` response
+- otherwise server respond a `forbidden` response
 
 The tests therefore materialize as follows:
 
@@ -238,7 +238,7 @@ Expected response to be a <401: unauthorized>, but was a <204: No Content>
 
 That's normal. It's now time implementing the logic to create the JWT token. It is very simple.
 
-.config/routes.rb
+.app/controllers/api/v1/tokens_controller.rb
 [source,ruby]
 ----
 class Api::V1::TokensController < ApplicationController
@@ -268,7 +268,7 @@ That's a lot of code but it's very simple:
 . We always filter parameters with the method `user_params`.
 . We retrieve the user with the method `User.find_by_email` (which is a "magic" method of _Active Record_ since the field `email` is present in the database) and we retrieve the user
 . We use the method `User#authenticate` (which exists thanks to the gem `bcrypt`) with the password as a parameter. Bcrypt will _hash_ password and check if it matches the attribute `password_digest`. The function returns `true` if everything went well, `false` if not.
-. If the password corresponds to the _hash_, a JSON containing the _token_ generated with the class `JsonWebToken` is returned. Otherwise, an empty response is returned with an `unauthorized` header
+. If the password corresponds to the _hash_, JSON containing the _token_ generated with the class `JsonWebToken` is returned. Otherwise, an empty response is returned with an `unauthorized` header
 
 Are you still here? Don't worry, it's over! Now your tests must pass.
 
@@ -294,7 +294,7 @@ $ git add . && git commit -m "Setup tokens controller"
 
 So we implemented the following logic: API returns the authentication token to the client if credentials are correct.
 
-We will now implement the following logic: we'll find corresponding user of authentication token given into the HTTP header. We'll need to do so each time this client requests a protected page.
+We will now implement the following logic: we'll find the corresponding user of an authentication token given into the HTTP header. We'll need to do so each time this client requests a protected page.
 
 We will use the HTTP header `Authorization` which is often used for this purpose. We may also use a GET parameter named `apiKey` but I prefer to use an HTTP header because it gives context to the request without polluting the URL with additional parameters.
 
@@ -326,7 +326,8 @@ As usual, we start by writing our tests. In this case, our `current_user` method
 [source,ruby]
 .test/controllers/concerns/authenticable_test.rb
 ----
-# ...
+require 'test_helper'
+
 class AuthenticableTest < ActionDispatch::IntegrationTest
   setup do
     @user = users(:one)
@@ -335,6 +336,7 @@ class AuthenticableTest < ActionDispatch::IntegrationTest
 
   test 'should get user from Authorization token' do
     @authentication.request.headers['Authorization'] = JsonWebToken.encode(user_id: @user.id)
+    assert_not_nil @authentication.current_user
     assert_equal @user.id, @authentication.current_user.id
   end
 
@@ -352,7 +354,8 @@ We can define the `MockController` class just above our test:
 [source,ruby]
 .test/controllers/concerns/authenticable_test.rb
 ----
-# ...
+require 'test_helper'
+
 class MockController
   include Authenticable
   attr_accessor :request
@@ -367,32 +370,7 @@ end
 
 The `MockController` class simply includes our `Authenticable` module that we will test. It contains a `request` attribute that contains a simple https://ruby-doc.org/core-2.6.3/Struct.html[`Struct`] that mimics the behavior of a Rails request by containing a `headers` attribute of the type `Hash`.
 
-Then we can implement our two tests right after
-
-[source,ruby]
-.test/controllers/concerns/authenticable_test.rb
-----
-# ...
-class AuthenticableTest < ActionDispatch::IntegrationTest
-  setup do
-    @user = users(:one)
-    @authentication = Authentication.new
-  end
-
-  test 'should get user from Authorization token' do
-    @authentication.request.headers['Authorization'] = JsonWebToken.encode(user_id: @user.id)
-    assert_not_nil @authentication.current_user
-    assert_equal @user.id, @authentication.current_user.id
-  end
-
-  test 'should not get user from empty Authorization token' do
-    @authentication.request.headers['Authorization'] = nil
-    assert_nil @authentication.current_user
-  end
-end
-----
-
-Our tests must fail. So let's implement the code so that it can be passed:
+We can now run our new tests which, missing the `current_user` implementation, we would expect to fail - which they do. So let's implement the code so that it can be passed:
 
 [source,ruby]
 .app/controllers/concerns/authenticable.rb
@@ -428,7 +406,6 @@ All we have to do is include the `Authenticable` module in the `ApplicationContr
 .app/controllers/application_controller.rb
 ----
 class ApplicationController < ActionController::API
-  # ...
   include Authenticable
 end
 ----
@@ -452,7 +429,7 @@ It is now time to update our `users_controller.rb` file to refuse access to cert
 
 We will therefore split our test _should update user_ and _should destroy user_ into two tests
 
-Let's start by updating the _should update user_ test.
+Let's start by changing the _should update user_ test.
 
 .test/controllers/api/v1/users_controller_test.rb
 [source,ruby]
@@ -472,6 +449,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     patch api_v1_user_url(@user), params: { user: { email: @user.email } }, as: :json
     assert_response :forbidden
   end
+  # ...
 end
 ----
 
@@ -509,14 +487,14 @@ $ rails test test/controllers/api/v1/users_controller_test.rb
 ..F
 
 Failure:
-Expected response to be a <2XX: success>, but was a <403: Forbidden>
+Expected response to be a <403: forbidden>, but was a <200: OK>
 
 ..F
 
 Failure:
-"User.count" didn t change by -1.
-Expected: 0
-  Actual: 1
+"User.count" didn t change by 0.
+Expected: 1
+  Actual: 0
 ----
 
 The solution is quite simple. We will add a `before_action` which will call the `check_owner` method for the `update` and `destroy` actions. This way we will check that the user corresponding to the JWT token is the same as the user who needs to be updated.
@@ -524,7 +502,7 @@ The solution is quite simple. We will add a `before_action` which will call the 
 Here is the implementation:
 
 [source,ruby]
-.spec/controllers/api/v1/users_controller_test.rb
+.app/controllers/api/v1/users_controller.rb
 ----
 class Api::V1::UsersController < ApplicationController
   before_action :set_user, only: %i[show update destroy]
